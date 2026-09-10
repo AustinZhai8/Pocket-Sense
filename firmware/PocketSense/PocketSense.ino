@@ -12,7 +12,7 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 Adafruit_BME280 bme;
 
-#define GUVA_PIN 4
+#define GUVA_PIN 32
 #define BTN_SCROLL 16
 #define BTN_SELECT 17
 #define BTN_BACK 18
@@ -43,11 +43,12 @@ const char* pressStatus(float p) {
   return "High";
 }
 
-const char* uvStatus(float v) {
-  if (v < 0.05) return "None";
-  if (v < 0.20) return "Low";
-  if (v < 0.40) return "Moderate";
-  return "High";
+const char* uvStatus(float i) {
+  if (i < 1) return "None";
+  if (i < 3) return "Low";
+  if (i < 6) return "Moderate";
+  if (i < 8) return "High";
+  return "Very High";
 }
 
 const char* wifiStatus(int rssi) {
@@ -79,7 +80,7 @@ void drawDetail(int index) {
   display.setCursor(0, 0);
 
   if (index == 0) {
-    float t = bme.readTemperature();
+    float t = bme.readTemperature() - 3.0;
     display.println("Temperature");
     display.setTextSize(2);
     display.setCursor(0, 20);
@@ -112,15 +113,18 @@ void drawDetail(int index) {
     display.println(pressStatus(p));
   }
   else if (index == 3) {
-    float v = analogRead(GUVA_PIN) * (3.3 / 4095.0);
+    int raw = analogRead(GUVA_PIN);
+    float voltage_mV = (raw / 4095.0) * 3.3 * 1000;
+    float uvIndex = voltage_mV / 100.0;
+    if (uvIndex < 0) uvIndex = 0;
+
     display.println("UV Index");
     display.setTextSize(2);
     display.setCursor(0, 20);
-    display.print(v, 2);
-    display.println(" V");
+    display.print(uvIndex, 1);
     display.setTextSize(1);
     display.setCursor(0, 50);
-    display.println(uvStatus(v));
+    display.println(uvStatus(uvIndex));
   }
   else if (index == 4) {
     display.println("WiFi");
@@ -163,7 +167,7 @@ void setup() {
 
   display.clearDisplay();
   display.setCursor(0, 0);
-  display.println("AmbientIQ");
+  display.println("PocketSense");
   display.println("Connecting WiFi...");
   display.display();
 
@@ -199,8 +203,8 @@ void loop() {
   if (digitalRead(BTN_SELECT) == LOW) {
     if (!inDetail) {
       inDetail = true;
-      drawDetail(menuIndex);
     }
+    drawDetail(menuIndex);
     delay(200);
   }
   if (digitalRead(BTN_BACK) == LOW) {
